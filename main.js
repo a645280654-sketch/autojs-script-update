@@ -1,25 +1,18 @@
 "auto";
 
 // ===== 在线更新配置 =====
-var CURRENT_VERSION = "1.0.4";
+var CURRENT_VERSION = "1.1.0";
 var VERSION_URL = "https://a645280654-sketch.github.io/autojs-script-update/version.json";
 
-// ===== 同步检测更新（阻塞等待完成） =====
-function checkUpdateSync() {
-    var result = {
-        hasUpdate: false,
-        shouldContinue: false,
-        isDownloading: false
-    };
-    var done = false;
-    
+// ===== 更新检测（独立运行，不阻塞） =====
+function checkUpdateAndRun() {
     threads.start(function() {
         try {
             var response = http.get(VERSION_URL, { timeout: 5000 });
             if (response.statusCode == 200) {
                 var data = response.body.json();
                 if (data.version && data.version !== CURRENT_VERSION) {
-                    result.hasUpdate = true;
+                    // 有更新，弹窗
                     ui.run(function() {
                         var dialog = dialogs.build({
                             title: "发现新版本",
@@ -28,6 +21,7 @@ function checkUpdateSync() {
                             negative: "稍后"
                         });
                         dialog.on("positive", function() {
+                            // 下载更新
                             threads.start(function() {
                                 try {
                                     var newScript = http.get(data.download_url, { timeout: 10000 });
@@ -40,21 +34,16 @@ function checkUpdateSync() {
                                         exit();
                                     } else {
                                         toast("下载失败，继续执行旧版本");
-                                        result.isDownloading = false;
-                                        result.shouldContinue = true;
-                                        done = true;
+                                        startMain(); // 下载失败，执行主程序
                                     }
                                 } catch(e) {
                                     toast("更新出错，继续执行旧版本");
-                                    result.isDownloading = false;
-                                    result.shouldContinue = true;
-                                    done = true;
+                                    startMain();
                                 }
                             });
                         });
                         dialog.on("negative", function() {
-                            result.shouldContinue = true;
-                            done = true;
+                            startMain(); // 用户取消，执行主程序
                         });
                         dialog.show();
                     });
@@ -64,32 +53,9 @@ function checkUpdateSync() {
         } catch(e) {
             console.log("更新检测失败: " + e.message);
         }
-        // 没有更新或检测失败
-        result.shouldContinue = true;
-        done = true;
+        // 没有更新或检测失败，执行主程序
+        startMain();
     });
-    
-    // 等待更新检测完成
-    var waitCount = 0;
-    while (!done && waitCount < 100) {
-        sleep(100);
-        waitCount++;
-    }
-    
-    // 如果有更新且正在下载，脚本即将退出
-    if (result.hasUpdate && !result.shouldContinue) {
-        return false; // 脚本会退出
-    }
-    
-    return true; // 继续执行主程序
-}
-
-// ===== 执行更新检测（阻塞等待完成） =====
-var shouldContinue = checkUpdateSync();
-
-// ===== 如果不应该继续（正在下载更新），直接退出 =====
-if (!shouldContinue) {
-    exit();
 }
 
 // ===== 主程序入口 =====
@@ -646,4 +612,4 @@ function startMain() {
 }
 
 // ===== 启动流程：先检测更新，再启动主程序 =====
-checkUpdate(startMain);
+checkUpdateAndRun();
