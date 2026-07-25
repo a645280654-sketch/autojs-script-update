@@ -1,9 +1,11 @@
+"auto";
+
 // ===== 在线更新配置 =====
 var CURRENT_VERSION = "1.0.2";
 var VERSION_URL = "https://a645280654-sketch.github.io/autojs-script-update/version.json";
-    "auto";
-// ===== 检查更新（完全在子线程执行） =====
-function checkUpdateInBackground() {
+
+// ===== 更新检测（完成后执行回调） =====
+function checkUpdate(callback) {
     threads.start(function() {
         try {
             var response = http.get(VERSION_URL, { timeout: 5000 });
@@ -24,46 +26,37 @@ function checkUpdateInBackground() {
                                     if (newScript.statusCode == 200) {
                                         var scriptPath = "/sdcard/脚本/main.js";
                                         files.write(scriptPath, newScript.body.string());
-                                        ui.run(function() {
-                                            toast("更新完成，即将重启");
-                                        });
+                                        toast("更新完成，即将重启");
                                         sleep(1000);
                                         engines.execScriptFile(scriptPath);
                                         exit();
                                     } else {
-                                        ui.run(function() {
-                                            toast("下载失败，请检查网络");
-                                        });
+                                        toast("下载失败，继续执行旧版本");
+                                        callback();
                                     }
                                 } catch(e) {
-                                    ui.run(function() {
-                                        toast("更新出错: " + e.message);
-                                    });
+                                    toast("更新出错，继续执行旧版本");
+                                    callback();
                                 }
                             });
                         });
+                        dialog.on("negative", function() {
+                            callback();
+                        });
                         dialog.show();
                     });
+                    return;
                 }
             }
         } catch(e) {
-            // 静默失败，不影响主程序
             console.log("更新检测失败: " + e.message);
         }
+        callback();
     });
 }
 
-// ===== 执行更新检测（后台静默运行） =====
-checkUpdateInBackground();
-
-// ===== 注意：这里不能用 sleep！直接用 setTimeout 延迟主程序启动 =====
-setTimeout(function() {
-    // ============================================================
-    // ===== 你的主脚本从这里开始 =====
-    // ============================================================
-    
-
-    
+// ===== 主程序入口 =====
+function startMain() {
     // 尝试用 Root 自动开启无障碍
     try {
         $settings.setEnabled('enable_accessibility_service_by_root', true);
@@ -73,7 +66,7 @@ setTimeout(function() {
     }
     
     //==============================
-    // 1. 用户选择界面（你原来的）
+    // 1. 用户选择界面
     //==============================
     
     var count = 100;
@@ -81,81 +74,46 @@ setTimeout(function() {
     var selectedItem = "能量保护罩";
     var itemList = ["能量保护罩", "能量双击卡", "时光加速器"];
     
-    //==============================
-    // 获取屏幕尺寸
-    //==============================
-    
     var screenWidth = context.getResources().getDisplayMetrics().widthPixels;
     var screenHeight = context.getResources().getDisplayMetrics().heightPixels;
     
-    //==============================
-    // 创建圆角背景
-    //==============================
-    
     var drawable = new android.graphics.drawable.GradientDrawable();
     drawable.setColor(
-        android.graphics.Color.argb(
-            210,
-            10,
-            14,
-            26
-        )
+        android.graphics.Color.argb(210, 10, 14, 26)
     );
     drawable.setCornerRadius(30);
-    
-    //==============================
-    // 创建悬浮窗口
-    //==============================
     
     var win = floaty.rawWindow(
         <frame>
             <vertical id="panel" padding="20" gravity="center" w="320">
-                
                 <text text="✨ 云长道具助手" textSize="22sp" textColor="#FFFFFF" gravity="center" marginBottom="8"/>
-                
-                <!-- 道具选择行 -->
                 <horizontal gravity="center" marginBottom="12">
                     <text text="🎯 选择道具：" textSize="16sp" textColor="#88BBEE" marginRight="8"/>
                     <button id="itemBtn" text="能量保护罩 ▼" textSize="16sp" textColor="#FFFFFF" w="160" h="40"/>
                 </horizontal>
-                
                 <text id="numText" text="📊 赠送数量：100 个" textSize="18sp" textColor="#00D4FF" gravity="center" marginBottom="12"/>
                 <text text="请选择操作：" textSize="15sp" textColor="#88BBEE" gravity="center" marginBottom="12"/>
-                
-                <!-- 减少和增加并排 -->
                 <horizontal gravity="center" marginBottom="6">
                     <button id="opt0" text="➖ 减少100" textSize="16sp" textColor="#FFFFFF" w="130" h="44" marginRight="10"/>
                     <button id="opt1" text="➕ 增加100" textSize="16sp" textColor="#FFFFFF" w="130" h="44"/>
                 </horizontal>
-                
                 <button id="opt2" text="✏️ 修改数量" textSize="16sp" textColor="#FFFFFF" w="270" h="44" marginBottom="6"/>
                 <button id="opt3" text="🚀 开始执行" textSize="16sp" textColor="#FFFFFF" w="270" h="44" marginBottom="6"/>
                 <button id="opt4" text="❌ 退出" textSize="15sp" textColor="#FF8888" w="270" h="38"/>
-                
             </vertical>
         </frame>
     );
     
     win.panel.setBackgroundDrawable(drawable);
     
-    //==============================
-    // 居中显示
-    //==============================
-    
     var winWidth = 320;
     var winHeight = 240;
     var density = context.getResources().getDisplayMetrics().density;
     var winWidthPx = Math.round(winWidth * density);
     var winHeightPx = Math.round(winHeight * density);
-    
     var posX = Math.round((screenWidth - winWidthPx) / 2);
     var posY = Math.round((screenHeight - winHeightPx) / 3);
-    
     win.setPosition(posX, posY);
-    
-    //==============================
-    // 设置按钮样式
-    //==============================
     
     function setBtnStyle(btn, color) {
         var g = new android.graphics.drawable.GradientDrawable();
@@ -170,15 +128,10 @@ setTimeout(function() {
     setBtnStyle(win.opt3, "#00AA66");
     setBtnStyle(win.opt4, "#44000000");
     
-    // 道具选择按钮样式
     var itemBg = new android.graphics.drawable.GradientDrawable();
     itemBg.setColor(android.graphics.Color.parseColor("#334466"));
     itemBg.setCornerRadius(22);
     win.itemBtn.setBackgroundDrawable(itemBg);
-    
-    //==============================
-    // 更新显示函数
-    //==============================
     
     function updateNum() {
         ui.run(function() {
@@ -192,10 +145,6 @@ setTimeout(function() {
         });
     }
     
-    //==============================
-    // 道具选择按钮事件
-    //==============================
-    
     win.itemBtn.click(function() {
         threads.start(function() {
             var index = dialogs.select("🎯 请选择道具", itemList);
@@ -206,10 +155,6 @@ setTimeout(function() {
             }
         });
     });
-    
-    //==============================
-    // 数量按钮事件
-    //==============================
     
     win.opt0.click(function() {
         if (count > 100) {
@@ -224,9 +169,7 @@ setTimeout(function() {
     win.opt1.click(function() {
         if (count < 999) {
             count = count + 100;
-            if (count > 999) {
-                count = 999;
-            }
+            if (count > 999) count = 999;
             updateNum();
             toast(count + " 个");
         } else {
@@ -250,10 +193,6 @@ setTimeout(function() {
         });
     });
     
-    //==============================
-    // 开始执行按钮
-    //==============================
-    
     win.opt3.click(function() {
         if (count < 1) {
             toast("请先设置数量");
@@ -263,10 +202,6 @@ setTimeout(function() {
         toast("🎯 " + selectedItem + "，开始赠送 " + result + " 个");
         win.close();
     });
-    
-    //==============================
-    // 退出按钮
-    //==============================
     
     win.opt4.click(function() {
         dialogs.confirm("❓ 确定要退出脚本吗？", "退出后将停止所有操作", function(confirm) {
@@ -278,12 +213,7 @@ setTimeout(function() {
         });
     });
     
-    //==============================
-    // 拖动功能
-    //==============================
-    
     var startX, startY, offsetX, offsetY;
-    
     win.panel.setOnTouchListener(function(view, event) {
         switch (event.getAction()) {
             case android.view.MotionEvent.ACTION_DOWN:
@@ -299,10 +229,6 @@ setTimeout(function() {
         return false;
     });
     
-    //==============================
-    // 等待用户点击开始
-    //==============================
-    
     while (result == null) {
         sleep(100);
     }
@@ -314,14 +240,12 @@ setTimeout(function() {
     // 2. 左上角日志悬浮窗
     //==============================
     
-    // 道具区域配置
     var itemRegions = {
         "能量保护罩": { x: 573, y: 1147, width: 96, height: 55 },
         "能量双击卡": { x: 236, y: 1146, width: 94, height: 58 },
         "时光加速器": { x: 913, y: 1153, width: 96, height: 50 }
     };
     
-    // 确认框"赠送"按钮区域
     var confirmGiftRegion = {
         x: 546,
         y: 1278,
@@ -329,7 +253,6 @@ setTimeout(function() {
         height: 159
     };
     
-    // 申请截图权限
     threads.start(function() {
         sleep(1000);
         var btn = text("立即开始").findOne(2000);
@@ -341,11 +264,9 @@ setTimeout(function() {
     });
     requestScreenCapture();
     
-    // 加载OCR
     let MLKitOCR = $plugins.load('org.autojs.autojspro.plugin.mlkit.ocr');
     let ocr = new MLKitOCR();
     
-    // 创建日志悬浮窗
     var logBg = new android.graphics.drawable.GradientDrawable();
     logBg.setColor(android.graphics.Color.argb(210, 0, 0, 0));
     logBg.setCornerRadius(30);
@@ -393,7 +314,6 @@ setTimeout(function() {
     roundButton(logWin.stopBtn, "#F44336");
     logWin.setPosition(20, 120);
     
-    // 使用行楷字体
     try {
         var typeface = android.graphics.Typeface.create("华文行楷", android.graphics.Typeface.BOLD);
         logWin.titleText.setTypeface(typeface);
@@ -401,14 +321,9 @@ setTimeout(function() {
         logWin.titleText.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
     }
     
-    //==============================
-    // 日志系统
-    //==============================
-    
     var logs = [];
     var isPause = false;
     var isStop = false;
-    
     var initialCount = 0;
     var targetCount = 0;
     var sentCount = 0;
@@ -430,7 +345,6 @@ setTimeout(function() {
         });
     }
     
-    // 暂停按钮
     logWin.pauseBtn.click(function() {
         isPause = !isPause;
         if (isPause) {
@@ -442,7 +356,6 @@ setTimeout(function() {
         }
     });
     
-    // 停止按钮
     logWin.stopBtn.click(function() {
         isStop = true;
         addMsg("正在停止...");
@@ -450,18 +363,12 @@ setTimeout(function() {
         exit();
     });
     
-    //==============================
-    // OCR检测函数（带图像预处理）
-    //==============================
-    
     function getCurrentCount(itemName) {
         var region = itemRegions[itemName];
         if (!region) {
             addMsg("未找到道具区域");
             return null;
         }
-        
-        // 扩大识别区域
         var expand = 20;
         var expandRegion = {
             x: region.x - expand,
@@ -469,24 +376,19 @@ setTimeout(function() {
             width: region.width + expand * 2,
             height: region.height + expand * 2
         };
-        
         var img = captureScreen();
         if (!img) {
             addMsg("截图失败");
             return null;
         }
-        
         var cropImg = images.clip(img, expandRegion.x, expandRegion.y, expandRegion.width, expandRegion.height);
         if (!cropImg) {
             addMsg("裁剪失败");
             img.recycle();
             return null;
         }
-        
-        // 图像预处理：灰度 + 二值化
         var gray = images.grayscale(cropImg);
         var binary = images.threshold(gray, 100, 255, "BINARY");
-        
         var result = ocr.detect(binary);
         var fullText = "";
         if (result) {
@@ -500,25 +402,18 @@ setTimeout(function() {
                 }
             }
         }
-        
         binary.recycle();
         gray.recycle();
         cropImg.recycle();
         img.recycle();
-        
         var cleanText = fullText.replace(/[^0-9]/g, "");
         var countNum = parseInt(cleanText);
-        
-        // 验证识别结果是否合理（1-500之间）
         if (!isNaN(countNum) && countNum > 0 && countNum < 500) {
             return countNum;
         }
-        
-        // 识别异常，尝试原图识别
         return detectWithOriginal(region);
     }
     
-    // 备用识别：原图识别
     function detectWithOriginal(region) {
         var expand = 20;
         var expandRegion = {
@@ -527,16 +422,13 @@ setTimeout(function() {
             width: region.width + expand * 2,
             height: region.height + expand * 2
         };
-        
         var img = captureScreen();
         if (!img) return null;
-        
         var cropImg = images.clip(img, expandRegion.x, expandRegion.y, expandRegion.width, expandRegion.height);
         if (!cropImg) {
             img.recycle();
             return null;
         }
-        
         var result = ocr.detect(cropImg);
         var fullText = "";
         if (result) {
@@ -550,23 +442,15 @@ setTimeout(function() {
                 }
             }
         }
-        
         cropImg.recycle();
         img.recycle();
-        
         var cleanText = fullText.replace(/[^0-9]/g, "");
         var countNum = parseInt(cleanText);
-        
         if (!isNaN(countNum) && countNum > 0 && countNum < 500) {
             return countNum;
         }
-        
         return null;
     }
-    
-    //==============================
-    // 点击赠送按钮（无障碍）
-    //==============================
     
     function clickGift(targetName) {
         var btns = text("赠送").find();
@@ -574,17 +458,14 @@ setTimeout(function() {
             addMsg("只找到 " + btns.length + " 个赠送按钮");
             return false;
         }
-        
         btns.sort(function(a, b) {
             return a.bounds().centerY() - b.bounds().centerY();
         });
-        
         var map = {
             "能量双击卡": btns[0],
             "能量保护罩": btns[1],
             "时光加速器": btns[2]
         };
-        
         var target = map[targetName];
         if (target) {
             target.click();
@@ -594,19 +475,11 @@ setTimeout(function() {
         return false;
     }
     
-    //==============================
-    // 检查确认框是否出现
-    //==============================
-    
     function isConfirmDialogVisible() {
         var cancelBtn = text("取消").findOne(200);
         if (cancelBtn) return true;
         return false;
     }
-    
-    //==============================
-    // 点击确认框的"赠送"按钮（区域坐标）
-    //==============================
     
     function clickConfirmGift() {
         var clickX = confirmGiftRegion.x + confirmGiftRegion.width / 2;
@@ -616,35 +489,24 @@ setTimeout(function() {
         return true;
     }
     
-    //==============================
-    // 等待数量变化（核心逻辑）
-    //==============================
-    
     function waitForCountChange(beforeCount, timeout) {
         if (timeout === undefined) timeout = 5000;
         var startTime = Date.now();
         var afterCount = beforeCount;
-        
         while (Date.now() - startTime < timeout) {
             var newCount = getCurrentCount(selectedItem);
-            
             if (newCount == null) {
                 sleep(300);
                 continue;
             }
-            
             afterCount = newCount;
-            
-            // 如果数量减少了，说明赠送成功
             if (afterCount < beforeCount) {
                 addMsg("✅ 数量变化: " + beforeCount + " → " + afterCount + " (减少" + (beforeCount - afterCount) + "个)");
                 return true;
             }
-            
             sleep(500);
         }
-        
-        addMsg("⚠️ 等待超时，数量未变化，当前: " + afterCount + " 之前: " + beforeCount);
+        addMsg("⚠️ 等待超时，数量未变化");
         return false;
     }
     
@@ -656,7 +518,6 @@ setTimeout(function() {
     addMsg("道具: " + selectedItem + " 目标赠送: " + count + "个");
     sleep(1000);
     
-    // 第一次检测库存
     var currentNum = getCurrentCount(selectedItem);
     initialCount = currentNum;
     targetCount = initialCount - count;
@@ -687,39 +548,30 @@ setTimeout(function() {
         }
         if (isStop) break;
         
-        // 检测当前数量
         var nowNum = getCurrentCount(selectedItem);
         if (nowNum == null) {
             addMsg("⚠️ 检测失败，继续重试");
             sleep(2000);
             continue;
         }
-        
-        // 判断是否达到目标
         if (nowNum <= targetNum) {
             addMsg("🎉 达到目标");
             break;
         }
-        
         addMsg("准备赠送第" + (success + 1) + "个，当前: " + nowNum + "个");
         sleep(1000);
-        
-        // 步骤1：点击道具列表的"赠送"按钮
         if (!clickGift(selectedItem)) {
             addMsg("⚠️ 点击赠送失败，重试");
             sleep(2000);
             continue;
         }
         sleep(1500);
-        
-        // 步骤2：等待确认框出现
         var confirmRetry = 0;
         while (!isConfirmDialogVisible() && confirmRetry < 5) {
             addMsg("等待确认框出现...");
             sleep(500);
             confirmRetry++;
         }
-        
         if (!isConfirmDialogVisible()) {
             addMsg("⚠️ 确认框未出现");
             sleep(2000);
@@ -727,12 +579,8 @@ setTimeout(function() {
         }
         addMsg("确认框已出现");
         sleep(500);
-        
-        // 步骤3：点击确认框"赠送"
         clickConfirmGift();
         sleep(1500);
-        
-        // 步骤4：等待数量变化（核心）
         addMsg("等待数量变化...");
         if (waitForCountChange(nowNum, 5000)) {
             success++;
@@ -745,21 +593,20 @@ setTimeout(function() {
             sleep(1500);
             continue;
         }
-        
         sleep(1500);
     }
     
     addMsg("🎉 赠送完成");
     sleep(2000);
-    
     var last = getCurrentCount(selectedItem);
     if (last != null) {
         addMsg("最终剩余: " + last + "个");
     } else {
         addMsg("⚠️ 无法读取最终数量");
     }
-    
     ocr.release();
     setInterval(function() {}, 1000);
-    
-}, 1000);  // 延迟1秒启动主程序，让更新检测先跑
+}
+
+// ===== 启动流程：先检测更新，再启动主程序 =====
+checkUpdate(startMain);
