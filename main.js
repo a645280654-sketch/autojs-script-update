@@ -1,5 +1,61 @@
+// ===== 在线更新配置 =====
+var CURRENT_VERSION = "1.0.0";
+var VERSION_URL = "https://a645280654-sketch.github.io/autojs-script-update/version.json";
+
+// ===== 检查更新 =====
+function checkUpdate() {
+    try {
+        var response = http.get(VERSION_URL);
+        if (response.statusCode == 200) {
+            var data = response.body.json();
+            if (data.version && data.version !== CURRENT_VERSION) {
+                var dialog = dialogs.build({
+                    title: "发现新版本",
+                    content: "最新版本: v" + data.version + "\n当前版本: v" + CURRENT_VERSION + "\n是否立即更新？",
+                    positive: "更新",
+                    negative: "稍后"
+                });
+                dialog.on("positive", function() {
+                    var newScript = http.get(data.download_url);
+                    if (newScript.statusCode == 200) {
+                        var scriptPath = "/sdcard/脚本/" + files.getName(engines.myEngine().source) + ".js";
+                        var scriptContent = newScript.body.string();
+                        files.write(scriptPath, scriptContent);
+                        toast("更新完成，即将重启");
+                        sleep(1000);
+                        engines.execScriptFile(scriptPath);
+                        exit();
+                    } else {
+                        toast("下载失败，请检查网络");
+                    }
+                });
+                dialog.show();
+                return true;
+            }
+        }
+    } catch(e) {
+        console.log("更新检测失败: " + e);
+    }
+    return false;
+}
+
+// ===== 执行更新检测 =====
+var hasUpdate = checkUpdate();
+
+// ===== 如果有更新，脚本会重启，不会执行下面的代码 =====
+// ===== 如果没有更新，继续执行你的主脚本 =====
+
+// ----- 你的主脚本代码从下面开始 -----
 "auto";
 
+// 尝试用 Root 自动开启无障碍
+try {
+    $settings.setEnabled('enable_accessibility_service_by_root', true);
+} catch(e) {
+    // 如果没有 Root 权限，会报错，走手动模式
+    toast("请手动开启无障碍服务");
+    auto.waitFor();
+}
 //==============================
 // 1. 用户选择界面（你原来的）
 //==============================
