@@ -1,6 +1,6 @@
 //测试
 // ===== 在线更新配置 =====
-var CURRENT_VERSION = "1.0.0";
+var CURRENT_VERSION = "1.0.1";
 var VERSION_URL = "https://a645280654-sketch.github.io/autojs-script-update/version.json";
 
 // ===== 检查更新 =====
