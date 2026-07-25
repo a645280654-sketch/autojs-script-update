@@ -1,7 +1,7 @@
 // ===== 在线更新配置 =====
 var CURRENT_VERSION = "1.0.2";
 var VERSION_URL = "https://a645280654-sketch.github.io/autojs-script-update/version.json";
-
+    "auto";
 // ===== 检查更新（完全在子线程执行） =====
 function checkUpdateInBackground() {
     threads.start(function() {
@@ -62,7 +62,7 @@ setTimeout(function() {
     // ===== 你的主脚本从这里开始 =====
     // ============================================================
     
-    "auto";
+
     
     // 尝试用 Root 自动开启无障碍
     try {
