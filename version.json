@@ -1,4 +1,11 @@
 {
   "version": "1.1.0",
-  "download_url": "https://a645280654-sketch.github.io/autojs-script-update/main.js"
+  "updateTime": "2026-08-04",
+  "changeLog": [
+    "1. 修复贴水检测逻辑",
+    "2. 优化滑动坐标",
+    "3. 新增日志缓存功能"
+  ],
+  "minSupportedVersion": "1.0.0",
+  "forceUpdate": false
 }
